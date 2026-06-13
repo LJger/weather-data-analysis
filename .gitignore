@@ -1,0 +1,39 @@
+# ===== Java / Spring Boot =====
+back_end/target/
+back_end/.mvn/
+back_end/*.jar
+back_end/*.war
+back_end/*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# Maven wrapper
+back_end/mvnw
+back_end/mvnw.cmd
+
+# Logs
+*.log
+
+# ===== Node / Vue =====
+front_end/node_modules/
+front_end/dist/
+front_end/.env.local
+front_end/.env.*.local
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Uploads =====
+back_end/uploads/avatars/*
+!back_end/uploads/avatars/.gitkeep
+
+# ===== Application secrets =====
+back_end/src/main/resources/application.properties
+back_end/src/main/resources/application-local.properties

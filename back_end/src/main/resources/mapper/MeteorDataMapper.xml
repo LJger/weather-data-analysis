@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.backend.mapper.MeteorDataMapper">
+
+    <resultMap id="meteorDataResultMap" type="com.example.backend.entity.MeteorData">
+        <id property="id"           column="id"/>
+        <result property="userId"       column="user_id"/>
+        <result property="taskId"       column="task_id"/>
+        <result property="stationId"    column="station_id"/>
+        <result property="elementCode"  column="element_code"/>
+        <result property="datetime"     column="datetime"/>
+        <result property="value"        column="value"/>
+    </resultMap>
+
+    <!-- 批量插入 -->
+    <insert id="insertBatch">
+        INSERT INTO gra_project.meteor_data
+            (user_id, task_id, station_id, element_code, datetime, value)
+        VALUES
+        <foreach item="item" collection="list" separator=",">
+            (#{item.userId}, #{item.taskId}, #{item.stationId}, #{item.elementCode}, #{item.datetime}, #{item.value})
+        </foreach>
+    </insert>
+
+    <delete id="deleteByTaskId">
+        DELETE FROM gra_project.meteor_data WHERE task_id = #{taskId}
+    </delete>
+
+    <!-- 统计类查询 -->
+    <select id="countByUserId" resultType="long">
+        SELECT COUNT(*) FROM gra_project.meteor_data WHERE user_id = #{userId}
+    </select>
+
+    <select id="countDistinctTaskIdByUserId" resultType="long">
+        SELECT COUNT(DISTINCT task_id) FROM gra_project.meteor_data WHERE user_id = #{userId}
+    </select>
+
+    <select id="countDistinctStationIdByUserId" resultType="long">
+        SELECT COUNT(DISTINCT station_id) FROM gra_project.meteor_data WHERE user_id = #{userId}
+    </select>
+
+    <select id="countDistinctElementCodeByUserId" resultType="long">
+        SELECT COUNT(DISTINCT element_code) FROM gra_project.meteor_data WHERE user_id = #{userId}
+    </select>
+
+    <!-- 最近记录查询 -->
+    <select id="findTop1000ByUserIdOrderByDatetimeDesc" resultMap="meteorDataResultMap">
+        SELECT * FROM gra_project.meteor_data
+        WHERE user_id = #{userId}
+        ORDER BY datetime DESC
+        LIMIT 1000
+    </select>
+
+    <select id="findTop1ByUserIdOrderByDatetimeDesc" resultMap="meteorDataResultMap">
+        SELECT * FROM gra_project.meteor_data
+        WHERE user_id = #{userId}
+        ORDER BY datetime DESC
+        LIMIT 1
+    </select>
+
+    <select id="findTopNByUserIdOrderByDatetimeDesc" resultMap="meteorDataResultMap">
+        SELECT * FROM gra_project.meteor_data
+        WHERE user_id = #{userId}
+        ORDER BY datetime DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findTopNByUserIdAndElementCodeOrderByDatetimeDesc" resultMap="meteorDataResultMap">
+        SELECT * FROM gra_project.meteor_data
+        WHERE user_id = #{userId} AND element_code = #{elementCode}
+        ORDER BY datetime DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 时间聚合序列 -->
+    <select id="aggregateTimeSeries" resultType="map">
+        SELECT date_trunc(#{granularity}, datetime) AS bucket,
+               AVG(value) AS avg_value,
+               MIN(value) AS min_value,
+               MAX(value) AS max_value
+        FROM gra_project.meteor_data
+        WHERE user_id = #{userId}
+          AND element_code = #{elementCode}
+          AND datetime BETWEEN #{startTime} AND #{endTime}
+          <if test="stationIds != null and stationIds.length > 0">
+              AND CAST(station_id AS INTEGER) = ANY(
+                  ARRAY[
+                  <foreach item="sid" collection="stationIds" separator=",">
+                      #{sid}
+                  </foreach>
+                  ]::integer[]
+              )
+          </if>
+          <if test="taskIds != null and taskIds.length > 0">
+              AND task_id = ANY(
+                  ARRAY[
+                  <foreach item="tid" collection="taskIds" separator=",">
+                      #{tid}
+                  </foreach>
+                  ]::bigint[]
+              )
+          </if>
+        GROUP BY bucket
+        ORDER BY bucket
+    </select>
+
+    <!-- 要素列表 -->
+    <select id="findDistinctElementCodesByUserId" resultType="string">
+        SELECT DISTINCT element_code FROM gra_project.meteor_data
+        WHERE user_id = #{userId}
+        ORDER BY element_code
+    </select>
+
+    <!-- 站点列表 -->
+    <select id="findDistinctStationIdsByUserId" resultType="int">
+        SELECT DISTINCT station_id FROM gra_project.meteor_data
+        WHERE user_id = #{userId}
+        ORDER BY station_id
+    </select>
+
+    <!-- 空间按站点聚合 -->
+    <select id="aggregateSpatialByStation" resultType="map">
+        SELECT station_id AS "stationId", AVG(value) AS "avgValue"
+        FROM gra_project.meteor_data
+        WHERE user_id = #{userId}
+          AND element_code = #{elementCode}
+          AND datetime BETWEEN #{startTime} AND #{endTime}
+        GROUP BY station_id
+    </select>
+
+    <!-- 省份空间统计 -->
+    <select id="aggregateProvinceSpatialStats" resultType="map">
+        SELECT ws.province,
+               AVG(m.value)  AS avg_value,
+               MIN(m.value)  AS min_value,
+               MAX(m.value)  AS max_value,
+               COUNT(DISTINCT m.station_id) AS station_count
+        FROM gra_project.meteor_data m
+        JOIN gra_project.weather_stations ws ON CAST(m.station_id AS VARCHAR) = ws.station_id
+        WHERE m.user_id = #{userId}
+          AND m.element_code = #{elementCode}
+          AND m.datetime BETWEEN #{startTime} AND #{endTime}
+        GROUP BY ws.province
+    </select>
+
+    <!-- 站点空间统计（含坐标） -->
+    <select id="aggregateStationSpatialStats" resultType="map">
+        SELECT m.station_id,
+               ws.station_name,
+               ws.province,
+               ws.latitude,
+               ws.longitude,
+               AVG(m.value) AS avg_value
+        FROM gra_project.meteor_data m
+        JOIN gra_project.weather_stations ws ON CAST(m.station_id AS VARCHAR) = ws.station_id
+        WHERE m.user_id = #{userId}
+          AND m.element_code = #{elementCode}
+          AND m.datetime BETWEEN #{startTime} AND #{endTime}
+          <if test="province != null">
+              AND ws.province = #{province}
+          </if>
+        GROUP BY m.station_id, ws.station_name, ws.province, ws.latitude, ws.longitude
+    </select>
+
+    <!-- 多要素相关性聚合 -->
+    <select id="aggregateCorrelationSeries" resultType="map">
+        SELECT element_code,
+               date_trunc(#{granularity}, datetime) AS bucket,
+               AVG(value) AS avg_value
+        FROM gra_project.meteor_data
+        WHERE user_id = #{userId}
+          AND element_code = ANY(
+              ARRAY[
+              <foreach item="code" collection="elementCodes" separator=",">
+                  #{code}
+              </foreach>
+              ]::varchar[]
+          )
+          <if test="stationIds != null and stationIds.length > 0">
+              AND CAST(station_id AS INTEGER) = ANY(
+                  ARRAY[
+                  <foreach item="sid" collection="stationIds" separator=",">
+                      #{sid}
+                  </foreach>
+                  ]::integer[]
+              )
+          </if>
+          <if test="taskIds != null and taskIds.length > 0">
+              AND task_id = ANY(
+                  ARRAY[
+                  <foreach item="tid" collection="taskIds" separator=",">
+                      #{tid}
+                  </foreach>
+                  ]::bigint[]
+              )
+          </if>
+          AND datetime BETWEEN #{startTime} AND #{endTime}
+        GROUP BY element_code, bucket
+        ORDER BY bucket ASC, element_code ASC
+    </select>
+
+    <!-- GIS网格数据 -->
+    <select id="findByDatetimeBetween" resultMap="meteorDataResultMap">
+        SELECT * FROM gra_project.meteor_data
+        WHERE datetime BETWEEN #{startTime} AND #{endTime}
+    </select>
+
+    <!-- 预测用：按用户+要素+时间范围 -->
+    <select id="findByUserIdAndElementCodeAndDatetimeBetweenOrderByDatetimeAsc" resultMap="meteorDataResultMap">
+        SELECT * FROM gra_project.meteor_data
+        WHERE user_id = #{userId}
+          AND element_code = #{elementCode}
+          AND datetime BETWEEN #{startTime} AND #{endTime}
+        ORDER BY datetime ASC
+    </select>
+
+    <!-- 预测用：含可选站点 -->
+    <select id="findForPrediction" resultMap="meteorDataResultMap">
+        SELECT * FROM gra_project.meteor_data
+        WHERE user_id = #{userId}
+          AND element_code = #{elementCode}
+          AND datetime BETWEEN #{startTime} AND #{endTime}
+          <if test="stationId != null">
+                            AND CAST(station_id AS INTEGER) = #{stationId}
+          </if>
+        ORDER BY datetime ASC
+    </select>
+
+    <!-- 数据时间范围 -->
+    <select id="findDataTimeRange" resultType="map">
+        SELECT MIN(datetime) AS "minTime",
+               MAX(datetime) AS "maxTime",
+               COUNT(*)      AS "dataCount"
+        FROM gra_project.meteor_data
+        WHERE user_id = #{userId} AND element_code = #{elementCode}
+    </select>
+
+    <!-- 按要素分组统计 -->
+    <select id="countGroupByElementCode" resultType="map">
+        SELECT element_code AS "elementCode",
+               COUNT(*)    AS "count"
+        FROM gra_project.meteor_data
+        WHERE user_id = #{userId}
+        GROUP BY element_code
+        ORDER BY COUNT(*) DESC
+    </select>
+
+    <!-- 动态条件分页查询 -->
+    <select id="searchRecords" resultMap="meteorDataResultMap">
+        SELECT * FROM gra_project.meteor_data
+        <where>
+            user_id = #{userId}
+            <if test="taskIds != null and taskIds.size() > 0">
+                AND task_id IN
+                <foreach item="tid" collection="taskIds" open="(" separator="," close=")">
+                    #{tid}
+                </foreach>
+            </if>
+            <if test="stationIds != null and stationIds.size() > 0">
+                AND CAST(station_id AS INTEGER) IN
+                <foreach item="sid" collection="stationIds" open="(" separator="," close=")">
+                    #{sid}
+                </foreach>
+            </if>
+            <if test="elementCodes != null and elementCodes.size() > 0">
+                AND element_code IN
+                <foreach item="ec" collection="elementCodes" open="(" separator="," close=")">
+                    #{ec}
+                </foreach>
+            </if>
+            <if test="startTime != null">
+                AND datetime &gt;= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND datetime &lt;= #{endTime}
+            </if>
+        </where>
+        ORDER BY datetime DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByFilters" resultType="long">
+        SELECT COUNT(*) FROM gra_project.meteor_data
+        <where>
+            user_id = #{userId}
+            <if test="taskIds != null and taskIds.size() > 0">
+                AND task_id IN
+                <foreach item="tid" collection="taskIds" open="(" separator="," close=")">
+                    #{tid}
+                </foreach>
+            </if>
+            <if test="stationIds != null and stationIds.size() > 0">
+                AND CAST(station_id AS INTEGER) IN
+                <foreach item="sid" collection="stationIds" open="(" separator="," close=")">
+                    #{sid}
+                </foreach>
+            </if>
+            <if test="elementCodes != null and elementCodes.size() > 0">
+                AND element_code IN
+                <foreach item="ec" collection="elementCodes" open="(" separator="," close=")">
+                    #{ec}
+                </foreach>
+            </if>
+            <if test="startTime != null">
+                AND datetime &gt;= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND datetime &lt;= #{endTime}
+            </if>
+        </where>
+    </select>
+
+</mapper>

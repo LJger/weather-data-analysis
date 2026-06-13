@@ -1,0 +1,57 @@
+spring.application.name=back_end
+
+server.port=8080
+
+spring.datasource.url=jdbc:postgresql://localhost:5432/postgres
+spring.datasource.username=postgres
+spring.datasource.password=YOUR_DATABASE_PASSWORD
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# MyBatis 配置
+mybatis.mapper-locations=classpath:mapper/*.xml
+mybatis.type-aliases-package=com.example.backend.entity
+mybatis.type-handlers-package=com.example.backend.config
+mybatis.configuration.map-underscore-to-camel-case=true
+mybatis.configuration.log-impl=org.apache.ibatis.logging.stdout.StdOutImpl
+
+spring.jackson.serialization.write-dates-as-timestamps=false
+spring.jackson.deserialization.fail-on-unknown-properties=false
+
+jwt.secret=CHANGE_THIS_TO_A_RANDOM_SECRET_KEY_AT_LEAST_32_CHARACTERS_LONG
+jwt.expiration=86400000
+
+# 邮箱SMTP配置（QQ邮箱）
+spring.mail.host=smtp.qq.com
+spring.mail.port=587
+spring.mail.username=YOUR_EMAIL@qq.com
+spring.mail.password=YOUR_SMTP_AUTHORIZATION_CODE
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+spring.mail.properties.mail.smtp.starttls.required=true
+
+# 文件上传配置
+spring.servlet.multipart.max-file-size=5MB
+spring.servlet.multipart.max-request-size=10MB
+
+# 头像上传存储路径
+file.upload.avatar-dir=uploads/avatars
+
+# Python 预测微服务配置（预留扩展）
+prediction.python.enabled=false
+prediction.python.url=http://localhost:5000
+
+# ==================== Redis 配置 ====================
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
+#spring.data.redis.password=YOUR_REDIS_PASSWORD
+spring.data.redis.database=0
+spring.data.redis.timeout=5000ms
+spring.data.redis.lettuce.pool.max-active=8
+spring.data.redis.lettuce.pool.max-idle=8
+spring.data.redis.lettuce.pool.min-idle=2
+spring.data.redis.lettuce.pool.max-wait=3000ms
+
+# ==================== HDFS 分布式存储配置 ====================
+hdfs.uri=hdfs://YOUR_HDFS_HOST:8020
+hdfs.user=YOUR_HDFS_USER
+hdfs.base-path=/weather-platform

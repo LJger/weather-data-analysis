@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.backend.mapper.HistoryWeatherDataMapper">
+
+    <resultMap id="historyWeatherDataResultMap" type="com.example.backend.entity.HistoryWeatherData">
+        <result property="stationId"        column="station_id"/>
+        <result property="observationTime"  column="observation_time"/>
+        <result property="temperature"      column="temperature"/>
+        <result property="relativeHumidity" column="relative_humidity"/>
+        <result property="precipitation3h"  column="precipitation_3h"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="historyWeatherDataResultMap">
+        SELECT * FROM gra_project.history_weather_data
+        ORDER BY observation_time DESC, station_id ASC
+    </select>
+
+    <select id="findByObservationTime" resultMap="historyWeatherDataResultMap">
+        SELECT * FROM gra_project.history_weather_data
+        WHERE observation_time = #{observationTime}
+    </select>
+
+    <select id="findByObservationTimeBetween" resultMap="historyWeatherDataResultMap">
+        SELECT * FROM gra_project.history_weather_data
+        WHERE observation_time BETWEEN #{startTime} AND #{endTime}
+    </select>
+
+    <select id="findByStationIdAndObservationTimeBetween" resultMap="historyWeatherDataResultMap">
+        SELECT * FROM gra_project.history_weather_data
+        WHERE station_id = #{stationId}
+          AND observation_time BETWEEN #{startTime} AND #{endTime}
+    </select>
+
+    <select id="findDistinctObservationTimes" resultType="java.time.LocalDateTime">
+        SELECT DISTINCT observation_time FROM gra_project.history_weather_data
+        ORDER BY observation_time DESC
+    </select>
+
+    <select id="findLatestObservationTime" resultType="java.time.LocalDateTime">
+        SELECT MAX(observation_time) FROM gra_project.history_weather_data
+    </select>
+
+</mapper>
